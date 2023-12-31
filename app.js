@@ -4,7 +4,8 @@ import bodyParser from "body-parser"
 import mongoose from "mongoose"
 import encrypt from "mongoose-encryption"
 import md5 from 'md5'
-
+import bcrypt from "bcrypt"
+const saltRounds = 10;
 
 const app = express();
 const port = 3000;
@@ -37,29 +38,34 @@ app.get("/register",(req,res)=>{
 });
 
 app.post("/register",async (req,res)=>{
-    const newUser = new User({
-        email:req.body["username"],
-        password:md5(req.body["password"])
-    }) ;
-    newUser.save()
-    .then(res.render("secrets.ejs"))
-    
+
+    bcrypt.hash(req.body["password"], saltRounds, function(err, hash) {
+        const newUser = new User({
+            email:req.body["username"],
+            password:hash
+        }) ;
+        newUser.save()
+        .then(res.render("secrets.ejs"))
+    });
+
 });
 
   
 
 app.post("/login",async (req,res)=>{
       const email =  req.body["username"];
-      const password =  md5(req.body["password"]);
+      const password = req.body["password"];
 
       try {
-        const emailFound = (await User.findOne({email:email})).email
-        const passwordFound = (await User.findOne({password:password})).password
-        if(emailFound===email && passwordFound===password){
-            res.render("secrets.ejs");
-          }else{
-            res.render("login.ejs");
-          }
+        const passwordFound = (await User.findOne({email:email})).password
+        
+       
+        bcrypt.compare(password, passwordFound, function(err, result) {
+            if(result === true){
+                res.render("secrets.ejs");
+            }
+        });
+        
     } catch (err) {
         res.render("register.ejs",{output:"Register first"});
     }
